@@ -1,0 +1,126 @@
+* {
+    font-family: "Orbitron", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 0; /* Square borders */
+}
+
+window#waybar {
+    background-color: transparent;
+    color: #00ffcc;
+}
+
+/* Tooltip style */
+tooltip {
+    background: rgba(9, 9, 11, 0.95);
+    border: 1px solid #ff0055;
+    border-radius: 0;
+}
+tooltip label {
+    color: #ff0055;
+}
+
+/* Modules containers */
+.modules-left, .modules-center, .modules-right {
+    margin: 4px 0px;
+}
+
+/* Individual Module Blocks */
+#workspaces,
+#clock,
+#cpu,
+#memory,
+#pulseaudio,
+#network,
+#battery,
+#custom-power,
+#tray {
+    background-color: rgba(9, 9, 11, 0.5);
+    border: 1px solid #ff0055; /* Neon magenta border */
+    color: #ff0055;
+    padding: 0 12px;
+    margin: 0 4px;
+}
+
+/* Workspaces */
+#workspaces {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+#workspaces button {
+    padding: 0 12px;
+    margin: 0 2px;
+    background-color: rgba(9, 9, 11, 0.5);
+    border: 1px solid #00ffcc;
+    color: #00ffcc;
+    transition: all 0.2s ease-in-out;
+}
+#workspaces button:hover {
+    background-color: #00ffcc;
+    color: #09090b;
+    box-shadow: 0 0 8px #00ffcc;
+}
+#workspaces button.active {
+    background-color: #00ffcc;
+    color: #09090b;
+    box-shadow: 0 0 10px #00ffcc;
+}
+#workspaces button.urgent {
+    background-color: #ffeb3b; /* Electric yellow */
+    border-color: #ffeb3b;
+    color: #09090b;
+    box-shadow: 0 0 10px #ffeb3b;
+}
+
+/* Specific module overrides */
+#clock {
+    background-color: rgba(9, 9, 11, 0.5);
+    border-color: #00ffcc;
+    color: #00ffcc;
+    font-size: 15px;
+    letter-spacing: 1px;
+}
+
+#pulseaudio {
+    background-color: rgba(9, 9, 11, 0.5);
+    border-color: #ffeb3b;
+    color: #ffeb3b;
+}
+
+#battery.charging {
+    background-color: rgba(9, 9, 11, 0.5);
+    border-color: #00ffcc;
+    color: #00ffcc;
+}
+#battery.warning:not(.charging) {
+    background-color: rgba(9, 9, 11, 0.5);
+    border-color: #ffeb3b;
+    color: #ffeb3b;
+}
+#battery.critical:not(.charging) {
+    background-color: #ff0055;
+    color: #09090b;
+    border-color: #ff0055;
+    animation-name: glitch;
+    animation-duration: 0.2s;
+    animation-timing-function: steps(2, end);
+    animation-iteration-count: infinite;
+}
+
+#custom-power {
+    background-color: #ff0055;
+    color: #09090b;
+    border-color: #ff0055;
+    padding: 0 15px;
+}
+#custom-power:hover {
+    box-shadow: 0 0 10px #ff0055;
+}
+
+/* Glitch animation for critical battery */
+@keyframes glitch {
+    0% { background-color: #ff0055; color: #09090b; }
+    50% { background-color: #09090b; color: #ff0055; }
+    100% { background-color: #ff0055; color: #09090b; }
+}
