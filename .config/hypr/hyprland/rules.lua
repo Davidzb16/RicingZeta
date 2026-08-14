@@ -72,6 +72,12 @@ hl.window_rule({match = {title = ".*is sharing (a window|your screen).*" }, floa
 hl.window_rule({match = {title = ".*is sharing (a window|your screen).*" }, pin = true})
 hl.window_rule({match = {title = ".*is sharing (a window|your screen).*" }, move = {"(monitor_w*.5-window_w*.5)", "(monitor_h-window_h-12)"} })
 
+-- --- Games Fullscreen ---
+hl.window_rule({match = {title = ".*\\.exe" }, fullscreen = true})
+hl.window_rule({match = {class = "^(steam_app).*" }, fullscreen = true})
+hl.window_rule({match = {class = "^[Ww]ine.*" }, fullscreen = true})
+hl.window_rule({match = {class = ".*gamescope.*" }, fullscreen = true})
+
 -- --- Tearing ---
 hl.window_rule({match = {title = ".*\\.exe" }, immediate = true})
 hl.window_rule({match = {title = ".*minecraft.*" }, immediate = true})
