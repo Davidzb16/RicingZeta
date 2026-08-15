@@ -353,6 +353,7 @@ hl.bind("SUPER + X", hl.dsp.exec_cmd(textEditor), { description = "App: Text edi
 hl.bind("CTRL + SUPER + V", hl.dsp.exec_cmd(volumeMixer), { description = "App: Volume mixer" })
 hl.bind("SUPER + I", hl.dsp.exec_cmd(settingsApp), { description = "App: Settings app" })
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd(taskManager), { description = "App: Task manager" })
+hl.bind("CTRL + SUPER + A", hl.dsp.exec_cmd("~/.config/waybar-dev/audiomenu.py"), { description = "App: Audio Menu" })
 
 --# Cursed stuff
 --## Make window not amogus large
