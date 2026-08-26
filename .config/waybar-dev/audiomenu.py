@@ -64,40 +64,107 @@ def run_cmd(cmd):
         return ""
 
 def get_devices():
-    out = run_cmd("wpctl status")
+    import json
+    try:
+        sinks_out = subprocess.check_output("pactl -f json list sinks 2>/dev/null", shell=True).decode('utf-8', errors='ignore')
+        sinks_json = json.loads(sinks_out)
+        sources_out = subprocess.check_output("pactl -f json list sources 2>/dev/null", shell=True).decode('utf-8', errors='ignore')
+        sources_json = json.loads(sources_out)
+        cards_out = subprocess.check_output("pactl -f json list cards 2>/dev/null", shell=True).decode('utf-8', errors='ignore')
+        cards_json = json.loads(cards_out)
+        info_out = subprocess.check_output("pactl -f json info 2>/dev/null", shell=True).decode('utf-8', errors='ignore')
+        info_json = json.loads(info_out)
+    except Exception as e:
+        return [], []
+
+    def_sink_name = info_json.get("default_sink_name", "")
+    def_source_name = info_json.get("default_source_name", "")
+
     sinks = []
     sources = []
     
-    current_section = None
-    for line in out.splitlines():
-        line_strip = line.strip()
-        if "Sinks:" in line:
-            current_section = "sinks"
-            continue
-        elif "Sources:" in line:
-            current_section = "sources"
-            continue
-        elif line_strip in ["Audio", "Video", "Settings"] or line_strip.startswith("├─ Filters:") or line_strip.startswith("└─ Streams:") or line_strip.startswith("└─ Clients:") or line_strip.startswith("└─ Default Configured Devices:"):
-            current_section = None
+    for s in sinks_json:
+        is_def = (s["name"] == def_sink_name)
+        desc = s.get("description", "")
+        if not desc or desc == "(null)":
+            desc = s.get("properties", {}).get("device.description", s["name"])
             
-        if current_section in ["sinks", "sources"]:
-            is_default = "*" in line
-            m = re.search(r'(\d+)\.\s+(.*?)\s+\[vol:\s+([\d\.]+).*?\]', line)
-            if not m:
-                m = re.search(r'(\d+)\.\s+(.*)', line)
+        vol_percent = 50
+        if "volume" in s and "front-left" in s["volume"]:
+            vol_str = str(s["volume"]["front-left"].get("value_percent", "50%"))
+            vol_percent = float(vol_str.strip('%'))
+            
+        desc = desc.replace("CORSAIR Slipstream Multi-Device Receiver Pro", "Corsair Slipstream")
+        desc = desc.replace("CORSAIR Slipstream Multi-Device Receiver", "Corsair Slipstream")
+        desc = desc.replace("Ryzen HD Audio Controller", "Ryzen HD Audio")
+        desc = desc.replace("GB205 High Definition Audio Controller", "GB205 Audio")
+        
+        sinks.append({
+            "id": s["name"], "name": desc, "is_default": is_def, "vol": vol_percent,
+            "type": "sink", "card": s.get("properties", {}).get("alsa.card_name", "")
+        })
+
+    for s in sources_json:
+        if s["name"].endswith(".monitor"): continue
+            
+        is_def = (s["name"] == def_source_name)
+        desc = s.get("description", "")
+        if not desc or desc == "(null)":
+            desc = s.get("properties", {}).get("device.description", s["name"])
+            
+        vol_percent = 50
+        if "volume" in s and "front-left" in s["volume"]:
+            vol_str = str(s["volume"]["front-left"].get("value_percent", "50%"))
+            vol_percent = float(vol_str.strip('%'))
+            
+        desc = desc.replace("CORSAIR Slipstream Multi-Device Receiver Pro", "Corsair Slipstream")
+        desc = desc.replace("CORSAIR Slipstream Multi-Device Receiver", "Corsair Slipstream")
+        desc = desc.replace("Ryzen HD Audio Controller", "Ryzen HD Audio")
+        desc = desc.replace("GB205 High Definition Audio Controller", "GB205 Audio")
+        
+        sources.append({
+            "id": s["name"], "name": desc, "is_default": is_def, "vol": vol_percent,
+            "type": "source", "card": s.get("properties", {}).get("alsa.card_name", "")
+        })
+
+    for c in cards_json:
+        card_id = c.get("name")
+        card_desc = c.get("properties", {}).get("device.description", card_id)
+        card_desc = card_desc.replace("CORSAIR Slipstream Multi-Device Receiver", "Corsair Slipstream")
+        card_desc = card_desc.replace("Ryzen HD Audio Controller", "Ryzen HD Audio")
+        card_desc = card_desc.replace("GB205 High Definition Audio Controller", "GB205 Audio")
+        
+        profiles = c.get("profiles", {})
+        active_prof = c.get("active_profile")
+        
+        for p_name, p_info in profiles.items():
+            if p_name == "off" or p_name == active_prof: continue
+            if "surround" in p_name: continue
+            if "extra2" in p_name or "extra3" in p_name or "extra4" in p_name: continue
+            if p_info.get("available") is False and "analog" not in p_name: continue
+            
+            p_desc = p_info.get("description", p_name)
+            if p_desc == "(null)":
+                if "analog-stereo" in p_name: p_desc = "Analog"
+                elif "iec958" in p_name: p_desc = "Digital"
+                else: p_desc = p_name
+            
+            # Avoid duplicate analog profiles from duplex
+            if "input:analog-stereo" in p_name and "output:analog-stereo" not in p_name and "output:iec958" not in p_name:
+                continue
                 
-            if m:
-                node_id = m.group(1)
-                name = m.group(2).strip()
-                # Remove [vol: ...] part if it was captured in name due to regex fallback
-                name = re.sub(r'\[vol:.*?\]', '', name).strip()
-                vol = float(m.group(3)) * 100 if len(m.groups()) >= 3 and m.group(3) is not None else 50
-                dev = {"id": node_id, "name": name, "is_default": is_default, "vol": vol}
-                if current_section == "sinks":
-                    sinks.append(dev)
-                else:
-                    sources.append(dev)
-                    
+            if p_info.get("sinks", 0) > 0 and not any(s["type"] == "profile" and s["card"] == card_id and s["name"] == f"{card_desc} ({p_desc})" for s in sinks):
+                sinks.append({
+                    "id": p_name, "name": f"{card_desc} ({p_desc})", "is_default": False,
+                    "vol": 50, "type": "profile", "card": card_id
+                })
+                
+            if p_info.get("sources", 0) > 0 and not any(s["type"] == "profile" and s["card"] == card_id and s["name"] == f"{card_desc} ({p_desc})" for s in sources):
+                sources.append({
+                    "id": p_name, "name": f"{card_desc} ({p_desc})", "is_default": False,
+                    "vol": 50, "type": "profile", "card": card_id
+                })
+
     return sinks, sources
 
 class AudioMenu(Gtk.Window):
@@ -142,8 +209,11 @@ class AudioMenu(Gtk.Window):
             if s['is_default']:
                 btn.get_style_context().add_class("active")
             
-            def on_sink_click(w, sid=s['id']):
-                run_cmd(f"wpctl set-default {sid}")
+            def on_sink_click(w, item=s):
+                if item.get("type") == "profile":
+                    run_cmd(f"pactl set-card-profile {item['card']} {item['id']}")
+                else:
+                    run_cmd(f"wpctl set-default {item['id']}")
                 for b in self.sink_btns:
                     b.get_style_context().remove_class("active")
                 w.get_style_context().add_class("active")
@@ -154,7 +224,7 @@ class AudioMenu(Gtk.Window):
 
         # Output Slider
         def_sink = next((s for s in sinks if s['is_default']), sinks[0] if sinks else None)
-        if def_sink:
+        if def_sink and def_sink.get("type") == "sink":
             adj = Gtk.Adjustment(value=def_sink['vol'], lower=0, upper=100, step_increment=1)
             scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
             scale.set_draw_value(False)
@@ -174,8 +244,11 @@ class AudioMenu(Gtk.Window):
             if s['is_default']:
                 btn.get_style_context().add_class("active")
                 
-            def on_source_click(w, sid=s['id']):
-                run_cmd(f"wpctl set-default {sid}")
+            def on_source_click(w, item=s):
+                if item.get("type") == "profile":
+                    run_cmd(f"pactl set-card-profile {item['card']} {item['id']}")
+                else:
+                    run_cmd(f"wpctl set-default {item['id']}")
                 for b in self.source_btns:
                     b.get_style_context().remove_class("active")
                 w.get_style_context().add_class("active")
@@ -186,7 +259,7 @@ class AudioMenu(Gtk.Window):
 
         # Input slider
         def_source = next((s for s in sources if s['is_default']), sources[0] if sources else None)
-        if def_source:
+        if def_source and def_source.get("type") == "source":
             adj2 = Gtk.Adjustment(value=def_source['vol'], lower=0, upper=100, step_increment=1)
             scale2 = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj2)
             scale2.set_draw_value(False)
